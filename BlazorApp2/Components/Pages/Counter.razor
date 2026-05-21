@@ -1,0 +1,88 @@
+﻿@page "/counter"
+@rendermode InteractiveServer
+
+@using BlazorApp2.Data
+@using BlazorApp2.Models
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext Db
+
+<h1>Kalendarz</h1>
+
+<div class="mb-3">
+    <input class="form-control" type="date" @bind="date" />
+</div>
+
+<div class="mb-3">
+    <input class="form-control" placeholder="Wpisz wydarzenie" @bind="text" />
+</div>
+
+<button class="btn btn-primary" @onclick="AddEvent">Dodaj</button>
+
+<h3 class="mt-4">Wydarzenia</h3>
+
+@if (!events.Any())
+{
+    <p>Brak wydarzeń</p>
+}
+else
+{
+    <ul class="list-group">
+        @foreach (var e in events)
+        {
+            <li class="list-group-item d-flex justify-content-between">
+                <span>
+                    <strong>@e.Date.ToShortDateString()</strong>: @e.Text
+                </span>
+
+                <button class="btn btn-danger btn-sm"
+                        @onclick="() => RemoveEvent(e)">
+                    Usuń
+                </button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private DateTime date = DateTime.Today;
+    private string text = "";
+    private List<EventItem> events = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        events = await Db.Events
+            .OrderBy(e => e.Date)
+            .ToListAsync();
+    }
+
+    private async Task AddEvent()
+    {
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            // Ustawiamy datę na północ UTC, bo input type="date" nie ma czasu ani strefy
+            var utcDate = DateTime.SpecifyKind(date, DateTimeKind.Utc);
+
+            var item = new EventItem
+            {
+                Date = utcDate,
+                Text = text
+            };
+
+            Db.Events.Add(item);
+            await Db.SaveChangesAsync();
+
+            events.Add(item);
+            text = "";
+        }
+    }
+
+
+
+    private async Task RemoveEvent(EventItem e)
+    {
+        Db.Events.Remove(e);
+        await Db.SaveChangesAsync();
+
+        events.Remove(e);
+    }
+}
